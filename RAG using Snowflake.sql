@@ -39,29 +39,30 @@ SELECT RELATIVE_PATH,count_no_of_pages_udf(BUILD_SCOPED_FILE_URL( @snowflake_llm
 
 --read PDF Content
 
-CREATE OR REPLACE function read_pdf(file_name string)
-  RETURNS string
+CREATE OR REPLACE FUNCTION readPDF(file_url STRING)
+  RETURNS STRING
   LANGUAGE PYTHON
   RUNTIME_VERSION = '3.8'
-  PACKAGES = ('snowflake-snowpark-python','PyPDF2')
+  PACKAGES = ('snowflake-snowpark-python', 'PyPDF2')
   HANDLER = 'main_fn'
 AS
 $$
 from snowflake.snowpark.files import SnowflakeFile
 import PyPDF2
-def main_fn(file_name):
-    f = SnowflakeFile.open(file_name, 'rb')
-    pdf_object = PyPDF2.PdfReader(f)
-    
-    # Initialize a variable to hold all the text
-    all_text = ""
-    
-    # Iterate over all the pages and concatenate the text
-    for page in pdf_object.pages:
-        all_text += page.extract_text().replace('\n',' ')
+
+def main_fn(file_url):
+    # Open the file from the stage
+    with SnowflakeFile.open(file_url, 'rb') as f:
+        pdf_reader = PyPDF2.PdfReader(f)
+        
+        # Extract text from all pages
+        all_text = ""
+        for page in pdf_reader.pages:
+            all_text += page.extract_text().replace('\n', ' ')
     
     return all_text
 $$;
+
 
 SELECT RELATIVE_PATH,read_pdf(BUILD_SCOPED_FILE_URL( @snowflake_llm_poc.PUBLIC.Snow_stage_directory_table_yt , RELATIVE_PATH )) as pdf_text FROM directory(@snowflake_llm_poc.PUBLIC.Snow_stage_directory_table_yt);
 
